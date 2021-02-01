@@ -129,7 +129,7 @@ void move_line(win_s *win,int type)
             win->y++;
         else
         {
-            if(win->printendy == win->y)
+            if(win->printendy == win->h)
             {
                 //当光标达到最下方，但下方还有文件时，文件上移
                 win->y--;
