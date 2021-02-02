@@ -9,6 +9,25 @@
 
 dirnode_s *cwdnode;
 char basepath[256];
+//根据文件结构体定位屏幕中的行号
+int index_file(win_s *win,filenode_s *file)
+{
+    int i;
+    for(i=0;i<win->printnumy;i++)
+    {
+        if(file == win->file_arr[win->printstarty + i].file)
+            return i;
+    }
+    //如果在界面上找不到父文件，则向上查找
+    i = 0;
+    while(win->printstarty + i >= 0)
+    {
+        if（file == win->file_arr[win->printstarty + i].file)
+            return i;
+        i--;
+    }
+    return 0;
+}
 
 //清屏
 void clear_win(win_s *win)
@@ -22,42 +41,57 @@ void flush_attr(win_s *win)
     int i;
     attr_t attr;
 
-    for(i=win->printstarty;i<win->printendy;i++)
+    for(i=0;i<win->printnumy;i++)
     {
-        if(win->cutfile == win->file_arr[i])
-            attr=A_BLINK|win->attr_arr[i];
-        else
-            attr=win->attr_arr[i];
+        attr=win->attr_arr[i];
+        if(win->cutfile == win->file_arr[win->printstarty + i].file)
+            attr|=A_BLINK;
+        if(win->y == i)
+            attr|=A_UNDERLINE;
 
         mvwchgat(win->window, i, win->x, win->w, attr, 0, NULL);
     }
 }
 
 //打印文件
-int print_filelist(void *node,void *args,int level)
+int arr_filelist(void *node,void *args,int level)
 {
     win_s *win = args;
+    vfile_s *vf;
 
-    filenode_s *file = node;
-    if(win->printindex++ < win->printfileindex)
-        return 0;
-
-    win->file_arr[win->printendy] = node;
-    if(file->type == FT_DIR)
-        mvwprintw(win->window,win->printendy++, win->spe*level, "%c%s",((dirnode_s*)file)->showchild?'-':'+',file->name);
-    else
-        mvwprintw(win->window,win->printendy++, win->spe*level, "%s",file->name);
-    if(win->printendy == win->h)
-        return 1;
-    return 0;
+    //这里file个数超出范围，调整大小
+    if(win->file_maxnum >= win->arr_maxnum)
+    {
+        win->file_arr = realloc(win->file_arr, sizeof(vfile_s)*(win->arr_maxnum + 32));
+        win->arr_maxnum += 32;
+    }
+    vf = &win->file_arr[win->file_maxnum++];
+    vf->file = node;
+    vf->level = level;
 }
 
 //打印文件列表
 void print_dirlist(win_s *win, dirnode_s *dirnode)
 {
-    win->printendy = win->printstarty;
-    win->printindex = 0;
-    foreach_file(cwdnode, print_filelist,win);
+    int i;
+    vfile_s *vf;
+    
+    win->file_maxnum = 0;
+    foreach_file(dirnode, arr_filelist,win);
+    
+    win->printnumy = win->file_maxnum - win->printstarty;
+    if(win->printnumy > win->h)
+        win->printnumy = win->h;
+    
+    for(i=0;i<win->printnumy;i++)
+    {
+        vf = &win->file_arr[win->printstarty + i];
+        
+        if(vf->file->type == FT_DIR)
+            mvwprintw(win->window,i,win->spe*vf->level,"%c%s",((dirnode_s*)vf->file)->showchild?'-':'+',vf->file->name);
+        else
+            mvwprintw(win->window,i,win->spe*vf->level,"%s",vf->file->name);
+    }
 }
 
 
@@ -71,12 +105,14 @@ void init_win(win_s *win, int h, int w, int y, int x)
     win->y = win->x = 0;
     win->printstarty = 0;
     win->printendy = 0;
-    win->printfileindex = 0;
     win->spe = 2;
     win->attr_arr = malloc(sizeof(attr_t)*win->h);
     memset(win->attr_arr,0,sizeof(attr_t)*win->h);
-    win->file_arr = malloc(sizeof(void*)*win->h);
-    memset(win->file_arr,0,sizeof(void*)*win->h);
+    win->file_arr = malloc(sizeof(vfile_s)*win->h);
+    memset(win->file_arr,0,sizeof(vfile_s)*win->h);
+    win->arr_maxnum = win->h;
+    win->file_maxnum = 0;    
+    keypad(win->window,TRUE);
     box(win->fullwin,0,0);
     wrefresh(win->fullwin);
 }
@@ -99,7 +135,6 @@ void init_view(view_s *view)
 
     //添加选中下划线
     view->curwin = &view->win[0];
-    view->curwin->attr_arr[view->curwin->y] |= A_UNDERLINE;
 
     //刷新窗口
     flush_attr(view->curwin);
@@ -109,30 +144,25 @@ void init_view(view_s *view)
 //移动选中窗口
 void move_win(view_s *view,int type)
 {
-    view->curwin->attr_arr[view->curwin->y] &=~ A_UNDERLINE;
-
     view->curwin++;
     if(view->curwin == &view->win[view->winnums])
         view->curwin = &view->win[0];
 
-    view->curwin->attr_arr[view->curwin->y] |= A_UNDERLINE;
 }
 
 //移动光标
 void move_line(win_s *win,int type)
 {
-    win->attr_arr[win->y] &=~ A_UNDERLINE;
     if(type == 'j')
     {
-        if(win->y < win->printendy - 1)
+        if(win->y + 1 < win->printnumy)
             //当光标未达到最下方文件，则光标下移
             win->y++;
         else
         {
-            if(win->printendy == win->h)
+            if(win->printstarty + win->printnumy < win->file_maxnum)
             {
-                //当光标达到最下方，但下方还有文件时，文件上移
-                win->y--;
+                //当光标达到最下方，但下方还有文件时，文件上移                
                 win->printfileindex++;
                 clear_win(win);
                 print_dirlist(win, cwdnode);
@@ -146,39 +176,59 @@ void move_line(win_s *win,int type)
             win->y--;
         else
         {
-            if(win->printfileindex)
+            if(win->printstarty)
             {
                 //若已达到最上方,但是上方还有文件,则文件下移
-                win->printfileindex--;
+                win->printstarty--;
                 clear_win(win);
                 print_dirlist(win,cwdnode);
             }
         }
     }
-    win->attr_arr[win->y] |= A_UNDERLINE;
 }
 
 //张开目录
 void toggle_dir(win_s *win)
 {
     dirnode_s *pdir;
-    filenode_s *pfile;
-    void *node;
+    filenode_s *node;
     
-    if(win->y >= win->printstarty && win->y <= win->printendy)
+    if(win->y < win->printnumy)
     {
-        node = win->file_arr[win->y];
-        if(*(int*)node == DT_DIR)
+        file = win->file_arr[win->printstarty + win->y].file;
+        if(file->type == DT_DIR)
         {
-            pdir = node;
+            pdir = (dirnode_s*)file;
             get_filelist(pdir);
             pdir->showchild = !pdir->showchild;
             clear_win(win);
             print_dirlist(win, cwdnode);
         }
         else
-            pfile = node;
+        {
+        }
+    }
+}
 
+//折叠父目录
+void fold_dir(win_s *win)
+{
+    filenode_s *file;
+    
+    if(win->y < win->printnumy)
+    {
+        file = win->file_arr[win->printstarty + win->y].file;
+        if(!file->father->file.father)
+            return;
+        ((dirnode_s*)file->father)->showchild = 0;
+        win-> = index_file(win,(filenode_s*)file->father);
+        if(win->y < 0)
+        {
+            win->printstarty += win->y;
+            win->y = 0;
+        }
+        clear_win(win);
+        print_dirlist(win,cwdnode);
     }
 }
 
@@ -191,9 +241,9 @@ void past_file(win_s *win)
     if(!win->cutfile)
         return;
 
-    if(win->y >= win->printstarty && win->y <= win->printendy)
+    if(win->y < win->printnumy)
     {
-        pfile = win->file_arr[win->y];
+        pfile = win->file_arr[win->printstarty + win->y].file;
         if(pfile->type == DT_DIR)
         {
             if(((dirnode_s*)pfile)->showchild)
@@ -204,18 +254,18 @@ void past_file(win_s *win)
         else
             fatherdir = pfile->father;
 
-        if(*(int*)win->cutfile == DT_DIR)
+        if(win->cutfile->type == DT_DIR)
         {
             //目录拷贝要满足2个条件，1.负责文件不能本来就在目标文件夹下 2.复制文件不能是目标文件本身或直系父目录
-            if(((filenode_s*)win->cutfile)->father == fatherdir)
+            if(win->cutfile->father == fatherdir)
                     return;
 
             dirnode_s *pdir = fatherdir;
             while(pdir)
             {
-                if(pdir == win->cutfile)
+                if(pdir == (dirnode_s*)win->cutfile)
                     return;
-                pdir = ((filenode_s*)pdir)->father;
+                pdir = pdir->file.father;
             }
         }
         else
@@ -243,8 +293,8 @@ void past_file(win_s *win)
 //剪切文件
 void cut_file(win_s*win)
 {
-    if(win->y >= win->printstarty && win->y <= win->printendy)
-        win->cutfile = win->file_arr[win->y];
+    if(win->y < win->printnumy)
+        win->cutfile = win->file_arr[win->printstarty + win->y].file;
 }
 
 //显示界面
@@ -283,12 +333,18 @@ void* show_view(void * arg)
             case '\n':
                 toggle_dir(view.curwin);
                 break;
+            case 'x':
+                fold_dir(view.curwin);
+                break;
             case 'd':
                 if('d' == getch())
                     cut_file(view.curwin);
                 break;
             case 'p':
                 past_file(view.curwin);
+                break;
+            case 0x1b:
+                view.curwin->cutfile = NULL;
                 break;
         }
         flush_attr(view.curwin);
