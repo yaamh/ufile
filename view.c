@@ -285,14 +285,14 @@ void past_file(win_s *win)
         {
             //复制文件
             copy_file(win->cutfile, fatherdir);
-            cpyinsert_filenode(fatherdir, win->cutfile);
+            insert_filenode(fatherdir, win->cutfile,TRUE);
         }
         else
         {
             if(move_file(win->cutfile, fatherdir))
                 return;
             delete_file(win->cutfile);
-            insert_file(fatherdir, win->cutfile);
+            insert_file(fatherdir, win->cutfile,FALSE);
         }
     }
     win->cutfile = NULL;
