@@ -22,7 +22,7 @@ int index_file(win_s *win,filenode_s *file)
     i = 0;
     while(win->printstarty + i >= 0)
     {
-        if（file == win->file_arr[win->printstarty + i].file)
+        if(file == win->file_arr[win->printstarty + i].file)
             return i;
         i--;
     }
@@ -68,6 +68,8 @@ int arr_filelist(void *node,void *args,int level)
     vf = &win->file_arr[win->file_maxnum++];
     vf->file = node;
     vf->level = level;
+    
+    return 0;
 }
 
 //打印文件列表
@@ -104,7 +106,7 @@ void init_win(win_s *win, int h, int w, int y, int x)
     getmaxyx(win->window, win->h, win->w);
     win->y = win->x = 0;
     win->printstarty = 0;
-    win->printendy = 0;
+    win->printnumy = 0;
     win->spe = 2;
     win->attr_arr = malloc(sizeof(attr_t)*win->h);
     memset(win->attr_arr,0,sizeof(attr_t)*win->h);
@@ -191,7 +193,7 @@ void move_line(win_s *win,int type)
 void toggle_dir(win_s *win)
 {
     dirnode_s *pdir;
-    filenode_s *node;
+    filenode_s *file;
     
     if(win->y < win->printnumy)
     {
@@ -221,7 +223,7 @@ void fold_dir(win_s *win)
         if(!file->father->file.father)
             return;
         ((dirnode_s*)file->father)->showchild = 0;
-        win-> = index_file(win,(filenode_s*)file->father);
+        win->y = index_file(win,(filenode_s*)file->father);
         if(win->y < 0)
         {
             win->printstarty += win->y;
@@ -279,11 +281,19 @@ void past_file(win_s *win)
         //检测文件复制是否成功
         if(insert_checkfile(fatherdir,win->cutfile))
             return;
-
-        if(move_file(win->cutfile, fatherdir))
-            return;
-        delete_file(win->cutfile);
-        insert_file(fatherdir, win->cutfile);
+        if(win->bcpyfile)
+        {
+            //复制文件
+            copy_file(win->cutfile, fatherdir);
+            cpyinsert_filenode(fatherdir, win->cutfile);
+        }
+        else
+        {
+            if(move_file(win->cutfile, fatherdir))
+                return;
+            delete_file(win->cutfile);
+            insert_file(fatherdir, win->cutfile);
+        }
     }
     win->cutfile = NULL;
     clear_win(win);
@@ -295,6 +305,30 @@ void cut_file(win_s*win)
 {
     if(win->y < win->printnumy)
         win->cutfile = win->file_arr[win->printstarty + win->y].file;
+}
+
+//复制文件
+void cpy_file(win_s *win)
+{
+    if(win->y < win->printnumy)
+    {
+        win->cutfile = win->file_arr[win->printstarty + win->y].file;
+        win->bcpyfile = 1;
+    }
+}
+
+//删除文件
+void del_file(win_s*win)
+{
+    filenode_s *file;
+    if(win->y < win->printnumy)
+    {
+        file = win->file_arr[win->printstarty + win->y].file;
+        delete_file(file);
+        delete_filenode(file);
+        clear_win(win);
+        print_dirlist(win,cwdnode);
+    }
 }
 
 //显示界面
@@ -340,10 +374,17 @@ void* show_view(void * arg)
                 if('d' == getch())
                     cut_file(view.curwin);
                 break;
+            case 'y':
+                if('y' == getch())
+                    cpy_file(view.curwin);
+                break;
+            case 'D':
+                del_file(view.curwin);
+                break;
             case 'p':
                 past_file(view.curwin);
                 break;
-            case 0x1b:
+            case 0x1b:  //撤销复制
                 view.curwin->cutfile = NULL;
                 break;
         }
