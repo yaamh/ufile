@@ -20,7 +20,8 @@ typedef struct
     int arr_maxnum;
     int file_maxnum;
     int printstarty,printnumy;
-    void  *cutfile;
+    filenode_s  *cutfile;
+    int bcpyfile;
 } win_s;
 
 
