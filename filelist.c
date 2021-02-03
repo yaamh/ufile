@@ -6,34 +6,62 @@
 #include <libgen.h>
 #include "filelist.h"
 
+//复制文件节点
+filenode_s* copy_filenode(filenode_s *file)
+{
+    filenode_s* tfile;
+    dirnode_s *dir;
+    
+    if(dit->d_type == DT_DIR)
+    {
+        dir = malloc(sizeof(dirnode_s));
+        memset(dir,0,sizeof(dirnode_s));
+        list_init(&dir->file.node);
+        list_init(&dir->dirchild);
+        list_init(&dir->filechild);
+        strncpy(dir->file.name,file->name,sizeof(dir->file.name));
+        dir->file.type = FT_DIR;
+        return &dir->file;
+    }
+    else
+    {
+        tfile = malloc(sizeof(filenode_s));
+        memset(tfile,0,sizeof(filenode_s));
+        list_init(&tfile->node);
+        strncpy(tfile->name,file->name,sizeof(tfile->name));
+        tfile->type = FT_REG;
+        return file;
+    }
+}
 
 //创建文件节点
 filenode_s* create_filenode(struct dirent *dit)
 {
     filenode_s* file;
-
-    file = malloc(sizeof(filenode_s));
-    memset(file,0,sizeof(filenode_s));
-    list_init(&file->node);
-    strncpy(file->name,dit->d_name,sizeof(file->name));
-    return file;
-}
-
-//创建目录节点
-dirnode_s* create_dirnode(struct dirent *dit)
-{
     dirnode_s *dir;
-
-    dir = malloc(sizeof(dirnode_s));
-    memset(dir,0,sizeof(dirnode_s));
-    list_init(&dir->file.node);
-    list_init(&dir->dirchild);
-    list_init(&dir->filechild);
-    strncpy(dir->file.name,dit->d_name,sizeof(dir->file.name));
-    dir->file.type = FT_DIR;
-
-    return dir;
+    
+    if(dit->d_type == DT_DIR)
+    {
+        dir = malloc(sizeof(dirnode_s));
+        memset(dir,0,sizeof(dirnode_s));
+        list_init(&dir->file.node);
+        list_init(&dir->dirchild);
+        list_init(&dir->filechild);
+        strncpy(dir->file.name,dit->d_name,sizeof(dir->file.name));
+        dir->file.type = FT_DIR;
+        return &dir->file;
+    }
+    else
+    {
+        file = malloc(sizeof(filenode_s));
+        memset(file,0,sizeof(filenode_s));
+        list_init(&file->node);
+        strncpy(file->name,dit->d_name,sizeof(file->name));
+        file->type = FT_REG;
+        return file;
+    }
 }
+
 
 //创建根目录节点
 dirnode_s* create_rootnode(const char* path)
@@ -124,7 +152,7 @@ dirnode_s* get_filelist(dirnode_s *dir)
         {
             if(namelist[i]->d_type == DT_DIR)
             {
-                pdirnode = create_dirnode(namelist[i]);
+                pdirnode = (dirnode_s*)create_dirnode(namelist[i]);
                 list_add_next(&dir->dirchild, &pdirnode->file.node);
                 pdirnode->file.father = dir;
             }
@@ -181,7 +209,7 @@ OUT:
 }
 
 //删除文件节点
-void* delete_file(filenode_s *file)
+void* delete_filenode(filenode_s *file)
 {
     list_del(&file->node);
     file->father = NULL;
@@ -211,12 +239,17 @@ int insert_checkfile(dirnode_s *dirnode, filenode_s *file)
 }
 
 //目录下插入文件
-void insert_file(dirnode_s *dirnode,filenode_s *file)
+void insert_filenode(dirnode_s *dirnode,filenode_s *file,int bcpy)
 {
-    filenode_s *pfile;
+    filenode_s *pfile,*tfile;
     list_node *pos,*target;
+    
+    if(bcpy)
+        tfile = copy_filenode(file);
+    else
+        tfile = file;
 
-    if(file->type == DT_DIR)
+    if(tfile->type == DT_DIR)
         target = &dirnode->dirchild;
     else
         target = &dirnode->filechild;
@@ -224,10 +257,10 @@ void insert_file(dirnode_s *dirnode,filenode_s *file)
     list_foreach_resv(pos,target)
     {
         pfile = list_entry(pos,filenode_s,node);
-        if(strcoll(file->name,pfile->name)<0)
+        if(strcoll(tfile->name,pfile->name)<0)
         {
-            file->father = dirnode;
-            list_add_next(&pfile->node,&file->node);
+            tfile->father = dirnode;
+            list_add_next(&pfile->node,&tfile->node);
             return;
         }
     }
