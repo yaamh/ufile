@@ -3,17 +3,23 @@
 
 #include <curses.h>
 
+typedef struct
+{
+    int level;
+    filenode_s *file;
+}vfile_s;
 
 typedef struct
 {
     WINDOW *fullwin;
     WINDOW *window;
     int x,y,w,h;
-    int printstarty,printendy;
-    int printfileindex,printindex;
     int spe;
     attr_t *attr_arr;
-    void **file_arr;
+    vfile_s *file_arr;
+    int arr_maxnum;
+    int file_maxnum;
+    int printstarty,printnumy;
     void  *cutfile;
 } win_s;
 
