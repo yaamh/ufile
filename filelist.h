@@ -11,7 +11,6 @@ typedef struct _filenode_s
     int type;
     list_node node;
     struct _dirnode_s *father;
-    long usrp;
     char name[256];
 }filenode_s;
 
