@@ -292,8 +292,8 @@ void past_file(win_s *win)
         {
             if(move_file(win->cutfile, fatherdir))
                 return;
-            delete_file(win->cutfile);
-            insert_file(fatherdir, win->cutfile,FALSE);
+            delete_filenode(win->cutfile);
+            insert_filenode(fatherdir, win->cutfile,FALSE);
         }
     }
     win->cutfile = NULL;
