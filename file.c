@@ -85,7 +85,7 @@ int split_file(char *data,int len,void ***outarr)
         if(p)
         {
             *p = 0;
-            p++
+            p++;
         }
         else
         {
