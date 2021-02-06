@@ -12,7 +12,7 @@ filenode_s* copy_filenode(filenode_s *file)
     filenode_s* tfile;
     dirnode_s *dir;
     
-    if(dit->d_type == DT_DIR)
+    if(file->type == DT_DIR)
     {
         dir = malloc(sizeof(dirnode_s));
         memset(dir,0,sizeof(dirnode_s));
@@ -30,7 +30,7 @@ filenode_s* copy_filenode(filenode_s *file)
         list_init(&tfile->node);
         strncpy(tfile->name,file->name,sizeof(tfile->name));
         tfile->type = FT_REG;
-        return file;
+        return tfile;
     }
 }
 
@@ -152,7 +152,7 @@ dirnode_s* get_filelist(dirnode_s *dir)
         {
             if(namelist[i]->d_type == DT_DIR)
             {
-                pdirnode = (dirnode_s*)create_dirnode(namelist[i]);
+                pdirnode = (dirnode_s*)create_filenode(namelist[i]);
                 list_add_next(&dir->dirchild, &pdirnode->file.node);
                 pdirnode->file.father = dir;
             }
