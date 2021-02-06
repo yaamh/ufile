@@ -284,6 +284,7 @@ void past_file(win_s *win)
         if(win->bcpyfile)
         {
             //复制文件
+            win-bcpyfile = 0;
             copy_file(win->cutfile, fatherdir);
             insert_filenode(fatherdir, win->cutfile,TRUE);
         }
