@@ -165,7 +165,7 @@ void move_line(win_s *win,int type)
             if(win->printstarty + win->printnumy < win->file_maxnum)
             {
                 //当光标达到最下方，但下方还有文件时，文件上移                
-                win->printfileindex++;
+                win->printstarty++;
                 clear_win(win);
                 print_dirlist(win, cwdnode);
             }
@@ -284,7 +284,7 @@ void past_file(win_s *win)
         if(win->bcpyfile)
         {
             //复制文件
-            win-bcpyfile = 0;
+            win->bcpyfile = 0;
             copy_file(win->cutfile, fatherdir);
             insert_filenode(fatherdir, win->cutfile,TRUE);
         }
