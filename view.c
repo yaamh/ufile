@@ -241,7 +241,7 @@ void past_file(win_s *win)
     dirnode_s *fatherdir;
 
     if(!win->cutfile)
-        return;
+        goto OUT;
 
     if(win->y < win->printnumy)
     {
@@ -260,13 +260,13 @@ void past_file(win_s *win)
         {
             //目录拷贝要满足2个条件，1.负责文件不能本来就在目标文件夹下 2.复制文件不能是目标文件本身或直系父目录
             if(win->cutfile->father == fatherdir)
-                    return;
+                goto OUT;
 
             dirnode_s *pdir = fatherdir;
             while(pdir)
             {
                 if(pdir == (dirnode_s*)win->cutfile)
-                    return;
+                    goto OUT;
                 pdir = pdir->file.father;
             }
         }
@@ -275,12 +275,12 @@ void past_file(win_s *win)
             //文件复制需满足1个条件，文件不能本身在目标文件夹下
             pfile = win->cutfile;
             if(pfile->father == fatherdir)
-                return;
+                goto OUT;
         }
 
         //检测文件复制是否成功
         if(insert_checkfile(fatherdir,win->cutfile))
-            return;
+            goto OUT;
         if(win->bcpyfile)
         {
             //复制文件
@@ -291,11 +291,12 @@ void past_file(win_s *win)
         else
         {
             if(move_file(win->cutfile, fatherdir))
-                return;
+                goto OUT;
             delete_filenode(win->cutfile);
             insert_filenode(fatherdir, win->cutfile,FALSE);
         }
     }
+OUT:
     win->cutfile = NULL;
     clear_win(win);
     print_dirlist(win,cwdnode);

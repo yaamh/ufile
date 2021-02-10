@@ -264,8 +264,8 @@ void insert_filenode(dirnode_s *dirnode,filenode_s *file,int bcpy)
             return;
         }
     }
-    file->father = dirnode;
-    list_add_next(target,&file->node);
+    tfile->father = dirnode;
+    list_add_next(target,&tfile->node);
 }
 
 
